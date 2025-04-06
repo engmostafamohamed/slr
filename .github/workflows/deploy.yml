@@ -1,0 +1,48 @@
+name: 🚀 Deploy Laravel Project
+
+on:
+  push:
+    branches:
+      - main  # or the branch you want to deploy from
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 🧱 Checkout Repo
+        uses: actions/checkout@v3
+
+      - name: 🧪 Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: 8.2
+          extensions: mbstring, bcmath, xml, curl, openssl, tokenizer, pdo, pdo_mysql
+          tools: composer
+
+      - name: 📦 Install Composer Dependencies
+        run: composer install --no-interaction --prefer-dist --optimize-autoloader
+
+      - name: ⚙️ Set up Laravel ENV
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+
+      - name: 🛠️ Set File Permissions
+        run: chmod -R 755 .
+
+      - name: 🚀 Deploy via SSH
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.SERVER_IP }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          port: 22
+          script: |
+            cd /var/www/your-project-folder
+            git pull origin main
+            composer install --no-interaction --prefer-dist --optimize-autoloader
+            php artisan migrate --force
+            php artisan config:cache
+            php artisan route:cache
+            php artisan view:cache
