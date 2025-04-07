@@ -1,48 +1,59 @@
-name: 🚀 Deploy Laravel Project
+name: Deploy to AWS Elastic Beanstalk
 
 on:
   push:
     branches:
-      - main  # or the branch you want to deploy from
+      - main  # Trigger the action on push to main branch
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-
     steps:
-      - name: 🧱 Checkout Repo
-        uses: actions/checkout@v3
+      # Checkout the repository
+      - name: Checkout code
+        uses: actions/checkout@v2
 
-      - name: 🧪 Set up PHP
+      # Set up PHP environment
+      - name: Set up PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: 8.2
-          extensions: mbstring, bcmath, xml, curl, openssl, tokenizer, pdo, pdo_mysql
-          tools: composer
+          php-version: '8.1'  # Laravel 9.x and above support PHP 8.1
+          extensions: mbstring, bcmath, gd
 
-      - name: 📦 Install Composer Dependencies
-        run: composer install --no-interaction --prefer-dist --optimize-autoloader
-
-      - name: ⚙️ Set up Laravel ENV
+      # Install Composer dependencies
+      - name: Install Composer dependencies
         run: |
-          cp .env.example .env
-          php artisan key:generate
+          curl -sS https://getcomposer.org/installer | php
+          php composer.phar install --no-dev --optimize-autoloader
 
-      - name: 🛠️ Set File Permissions
-        run: chmod -R 755 .
+      # Install Node.js and npm packages
+      - name: Install npm packages and build assets
+        run: |
+          curl -sL https://deb.nodesource.com/setup_16.x | sudo -E bash -
+          sudo apt-get install -y nodejs
+          npm install
+          npm run prod  # To minify JS/CSS for production
 
-      - name: 🚀 Deploy via SSH
-        uses: appleboy/ssh-action@master
-        with:
-          host: ${{ secrets.SERVER_IP }}
-          username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.SERVER_SSH_KEY }}
-          port: 22
-          script: |
-            cd /var/www/your-project-folder
-            git pull origin main
-            composer install --no-interaction --prefer-dist --optimize-autoloader
-            php artisan migrate --force
-            php artisan config:cache
-            php artisan route:cache
-            php artisan view:cache
+      # Configure AWS CLI
+      - name: Configure AWS CLI
+        run: |
+          aws configure set aws_access_key_id ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws configure set region ${{ secrets.AWS_REGION }}
+
+      # Zip the Laravel application for deployment
+      - name: Prepare Application Zip
+        run: |
+          zip -r application.zip . -x '*.git*' 'node_modules/*' 'storage/*' 'vendor/*'
+
+      # Deploy to Elastic Beanstalk
+      - name: Deploy to Elastic Beanstalk
+        run: |
+          aws elasticbeanstalk create-application-version \
+            --application-name ${{ secrets.AWS_ELASTICBEANSTALK_APPLICATION_NAME }} \
+            --version-label $GITHUB_SHA \
+            --source-bundle S3Bucket=${{ secrets.S3_BUCKET_NAME }},S3Key=application.zip
+
+          aws elasticbeanstalk update-environment \
+            --environment-name ${{ secrets.AWS_ELASTICBEANSTALK_ENVIRONMENT_NAME }} \
+            --version-label $GITHUB_SHA
