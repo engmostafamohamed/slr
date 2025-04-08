@@ -43,6 +43,10 @@ jobs:
           echo "AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}" >> .env
           echo "AWS_REGION=${{ secrets.AWS_REGION }}" >> .env
 
+      # (Optional) Run tests (uncomment if you have tests)
+      # - name: Run Tests
+      #   run: php artisan test
+
   deploy:
     runs-on: ubuntu-latest
     needs: build  # Ensure deployment only happens after build and tests pass
@@ -72,13 +76,20 @@ jobs:
           # Check if environment exists and create it if necessary
           if ! eb use ${{ secrets.AWS_ELASTICBEANSTALK_ENVIRONMENT_NAME }}; then
             echo "Environment not found. Creating it..."
-            eb create ${{ secrets.AWS_ELASTICBEANSTALK_ENVIRONMENT_NAME }}
+            eb create ${{ secrets.AWS_ELASTICBEANSTALK_ENVIRONMENT_NAME }} --region ${{ secrets.AWS_REGION }}
           else
             echo "Environment found. Deploying..."
           fi
 
-          # Deploy the application
-          eb deploy
+      # If the environment is in CREATE_FAILED, terminate it and recreate
+      - name: Handle Failed Environment
+        run: |
+          if ! eb deploy; then
+            echo "Deployment failed. Terminating environment..."
+            eb terminate --force
+            echo "Recreating the environment..."
+            eb create ${{ secrets.AWS_ELASTICBEANSTALK_ENVIRONMENT_NAME }} --region ${{ secrets.AWS_REGION }}
+          fi
 
   post-deploy:
     runs-on: ubuntu-latest
