@@ -67,7 +67,9 @@ jobs:
       # Install Elastic Beanstalk CLI
       - name: Install Elastic Beanstalk CLI
         run: |
-          curl -sL https://github.com/aws/aws-elastic-beanstalk-cli-setup/raw/master/scripts/install.py | python3
+          sudo apt-get update
+          sudo apt-get install -y python3-pip
+          sudo pip3 install awsebcli
 
       # Deploy to AWS Elastic Beanstalk
       - name: Deploy to AWS Elastic Beanstalk
