@@ -2,47 +2,32 @@ name: Deploy Laravel 11 to AWS EB
 
 on:
   push:
-    branches: [main]
+    branches: [main] # Adjust if you want to deploy other branches like 'staging'
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
+      # Checkout the repo
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Generate .ebextensions for Elastic Beanstalk
-      - name: Create EB configurations
+      # Create temporary .env for build (using MySQL)
+      - name: Create .env file for build
         run: |
-          mkdir -p .ebextensions
-          
-          echo "option_settings:
-            aws:elasticbeanstalk:application:environment:
-              APP_ENV: production
-              APP_DEBUG: false
-              LOG_CHANNEL: stderr
-              DB_CONNECTION: mysql
-              DB_HOST: ${DB_HOST}
-              DB_PORT: 26130
-              DB_DATABASE: ${DB_DATABASE}
-              DB_USERNAME: ${DB_USERNAME}
-              DB_PASSWORD: ${DB_PASSWORD}
-          " > .ebextensions/01-environment.config
+          cp .env.example .env
+          echo "APP_KEY=base64:$(php -r 'echo base64_encode(random_bytes(32));')" >> .env
+          echo "APP_ENV=production" >> .env
+          echo "APP_DEBUG=false" >> .env
+          echo "LOG_CHANNEL=stderr" >> .env
 
-          echo "container_commands:
-            01_storage_permissions:
-              command: \"chmod -R 755 storage\"
-              ignoreErrors: false
-          " > .ebextensions/02-permissions.config
-
-          echo "container_commands:
-            01_run_migrations:
-              command: \"php artisan migrate --force\"
-              leader_only: true
-            02_optimize:
-              command: \"php artisan optimize\"
-          " > .ebextensions/03-migrations.config
+          echo "DB_CONNECTION=mysql" >> .env
+          echo "DB_HOST=${{ secrets.DB_HOST }}" >> .env
+          echo "DB_PORT=26130" >> .env
+          echo "DB_DATABASE=${{ secrets.DB_DATABASE }}" >> .env
+          echo "DB_USERNAME=${{ secrets.DB_USERNAME }}" >> .env
+          echo "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" >> .env
 
       # Setup PHP
       - name: Setup PHP
@@ -52,7 +37,7 @@ jobs:
           extensions: mbstring, ctype, fileinfo, openssl, tokenizer, xml, gd, pdo_mysql
 
       # Install Composer dependencies
-      - name: Install dependencies
+      - name: Install PHP dependencies
         run: |
           composer install --no-dev --optimize-autoloader
           php artisan config:clear
@@ -60,16 +45,49 @@ jobs:
           php artisan view:clear
           php artisan cache:clear
 
-      - name: Set directory permissions
+      # Set correct directory permissions
+      - name: Set folder permissions
         run: chmod -R 775 storage bootstrap/cache
 
-      # Package app
+      # Generate .ebextensions
+      - name: Create EB configuration files
+        run: |
+          mkdir -p .ebextensions
+
+          echo "option_settings:
+            aws:elasticbeanstalk:application:environment:
+              APP_ENV: production
+              APP_DEBUG: false
+              LOG_CHANNEL: stderr
+              DB_CONNECTION: mysql
+              DB_HOST: ${{ secrets.DB_HOST }}
+              DB_PORT: 26130
+              DB_DATABASE: ${{ secrets.DB_DATABASE }}
+              DB_USERNAME: ${{ secrets.DB_USERNAME }}
+              DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          " > .ebextensions/01-environment.config
+
+          echo "container_commands:
+            01_storage_permissions:
+              command: \"chmod -R 775 storage bootstrap/cache\"
+              ignoreErrors: false
+          " > .ebextensions/02-permissions.config
+
+          echo "container_commands:
+            01_migrate:
+              command: \"php artisan migrate --force\"
+              leader_only: true
+            02_optimize:
+              command: \"php artisan optimize\"
+          " > .ebextensions/03-migrations.config
+
+      # Package the application
       - name: Create deployment package
         run: |
           rm -rf node_modules/ .git/ .github/
           zip -r ../app.zip . -x '*.git*' '*.env*'
 
-      # Set AWS credentials
+      # Configure AWS credentials
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -78,7 +96,7 @@ jobs:
           aws-region: ${{ secrets.AWS_REGION }}
 
       # Deploy to Elastic Beanstalk
-      - name: Deploy to Elastic Beanstalk
+      - name: Deploy to AWS Elastic Beanstalk
         uses: einaregilsson/beanstalk-deploy@v21
         with:
           application_name: ${{ secrets.AWS_ELASTICBEANSTALK_APPLICATION_NAME }}
