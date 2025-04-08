@@ -1,80 +1,79 @@
-name: Deploy to AWS Elastic Beanstalk
+name: Laravel CI/CD Pipeline
 
 on:
   push:
     branches:
-      - main  # This workflow triggers on pushes to the main branch
+      - main  # Change this to your default branch if it's not `main`
 
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
-
     steps:
-      # 1. Checkout the repository
+      # Checkout the code
       - name: Checkout code
         uses: actions/checkout@v2
 
-      # 2. Set up PHP environment (using PHP 8.2)
+      # Set up PHP
       - name: Set up PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.2'
-          extensions: mbstring, bcmath, gd, pdo, pdo_mysql
+          php-version: '8.1'  # Choose the PHP version you are using
+          extensions: mbstring, bcmath, zip
+          ini-values: post_max_size=256M, upload_max_filesize=256M
 
-      # 3. Install Composer dependencies
-      - name: Install Composer dependencies
+      # Install Composer
+      - name: Install Composer
         run: |
           curl -sS https://getcomposer.org/installer | php
-          php composer.phar install --no-dev --optimize-autoloader
+          sudo mv composer.phar /usr/local/bin/composer
 
-      # 4. Install Node.js and build assets (if you use frontend tooling)
-      - name: Install Node.js and build assets
+      # Install dependencies
+      - name: Install dependencies
+        run: composer install --no-progress --prefer-dist
+
+      # Set up environment variables
+      - name: Set up environment variables
         run: |
-          curl -sL https://deb.nodesource.com/setup_18.x | sudo -E bash -
-          sudo apt-get install -y nodejs
-          npm install
-          npm run prod
+          echo "APP_KEY=${{ secrets.APP_KEY }}" >> .env
+          echo "DB_HOST=${{ secrets.DB_HOST }}" >> .env
+          echo "DB_DATABASE=${{ secrets.DB_DATABASE }}" >> .env
+          echo "DB_USERNAME=${{ secrets.DB_USERNAME }}" >> .env
+          echo "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" >> .env
+          echo "AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}" >> .env
+          echo "AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}" >> .env
+          echo "AWS_DEFAULT_REGION=${{ secrets.AWS_DEFAULT_REGION }}" >> .env
 
-      # 5. Set Laravel permissions (if needed by your deployment)
-      - name: Set Laravel Permissions
-        run: chmod -R 775 storage bootstrap/cache
+      # Run tests
+      - name: Run Tests
+        run: php artisan test
 
-      # 6. Configure AWS CLI using secrets
-      - name: Configure AWS CLI
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build  # Ensure deployment only happens after build and tests pass
+    steps:
+      # Checkout the code again
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      # Set up AWS CLI
+      - name: Set up AWS CLI
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
+
+      # Deploy to AWS Elastic Beanstalk
+      - name: Deploy to AWS Elastic Beanstalk
         run: |
-          aws configure set aws_access_key_id ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws configure set default.region ${{ secrets.AWS_REGION }}
+          eb init -p php -r ${{ secrets.AWS_DEFAULT_REGION }} --region ${{ secrets.AWS_DEFAULT_REGION }}
+          eb use your-environment-name  # Replace with your environment name
+          eb deploy
 
-      # 7. Zip the application for deployment
-      - name: Create deployment package (ZIP)
-        run: |
-          zip -r application.zip . -x '*.git*' 'node_modules/*' 'storage/*' 'vendor/*'
-
-      # 8. Upload the ZIP to S3
-      - name: Upload deployment package to S3
-        run: |
-          aws s3 cp application.zip s3://${{ secrets.S3_BUCKET_NAME }}/application.zip
-
-      # 9. Create a new application version in Elastic Beanstalk and update the environment
-      - name: Deploy to Elastic Beanstalk
-        run: |
-          aws elasticbeanstalk create-application-version \
-            --application-name ${{ secrets.AWS_ELASTICBEANSTALK_APPLICATION_NAME }} \
-            --version-label $GITHUB_SHA \
-            --source-bundle S3Bucket=${{ secrets.S3_BUCKET_NAME }},S3Key=application.zip
-          aws elasticbeanstalk update-environment \
-            --environment-name ${{ secrets.AWS_ELASTICBEANSTALK_ENVIRONMENT_NAME }} \
-            --version-label $GITHUB_SHA
-
-      # 10. (Optional) Run migrations
-      # NOTE: Running "php artisan migrate --force" here will run the command on the GitHub runner,
-      # which is not the deployed server. To run migrations on the deployed EC2 instance, consider either:
-      #   a) Setting up an .ebextensions config to auto-run migrations
-      #   b) Triggering an HTTP endpoint (secured) on your deployed instance that calls migrations.
-      - name: Run migrations (optional)
-        run: |
-          php artisan migrate --force
-
-      - name: Deployment Complete
-        run: echo "✅ Production deployment complete!"
+  post-deploy:
+    runs-on: ubuntu-latest
+    needs: deploy
+    steps:
+      # Send a notification or trigger other actions post-deployment if needed
+      - name: Send deployment notification (example)
+        run: echo "Deployment to AWS Elastic Beanstalk completed successfully."
