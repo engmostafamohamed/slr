@@ -11,78 +11,77 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    # Checkout code
-    - name: Checkout repository
-      uses: actions/checkout@v4
+      # Checkout code
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-    # Generate .ebextensions configuration
-    - name: Create EB configurations
-      run: |
-        mkdir -p .ebextensions
-        # Environment variables configuration
-        echo "option_settings:
-          aws:elasticbeanstalk:application:environment:
-            APP_ENV: production
-            APP_DEBUG: false
-            LOG_CHANNEL: stderr
-            DB_CONNECTION: mysql
-        " > .ebextensions/01-environment.config
+      # Create EB configuration files
+      - name: Create EB configurations
+        run: |
+          mkdir -p .ebextensions
+          
+          echo "option_settings:
+            aws:elasticbeanstalk:application:environment:
+              APP_ENV: production
+              APP_DEBUG: false
+              LOG_CHANNEL: stderr
+              DB_CONNECTION: mysql
+          " > .ebextensions/01-environment.config
 
-        # Permissions configuration
-        echo "container_commands:
-          01_storage_permissions:
-            command: \"chmod -R 755 storage\"
-            ignoreErrors: false
-        " > .ebextensions/02-permissions.config
+          echo "container_commands:
+            01_storage_permissions:
+              command: \"chmod -R 755 storage\"
+              ignoreErrors: false
+          " > .ebextensions/02-permissions.config
 
-        # Database migrations configuration
-        echo "container_commands:
-          01_run_migrations:
-            command: \"php artisan migrate --force\"
-            leader_only: true
-          02_optimize:
-            command: \"php artisan optimize\"
-        " > .ebextensions/03-migrations.config
+          echo "container_commands:
+            01_run_migrations:
+              command: \"php artisan migrate --force\"
+              leader_only: true
+            02_optimize:
+              command: \"php artisan optimize\"
+          " > .ebextensions/03-migrations.config
 
-    # Setup PHP
-    - name: Setup PHP
-      uses: shivammathur/setup-php@v2
-      with:
-        php-version: '8.2'
-        extensions: mbstring, ctype, fileinfo, openssl, tokenizer, xml, gd, pdo_mysql
+      # Setup PHP
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: mbstring, ctype, fileinfo, openssl, tokenizer, xml, gd, pdo_mysql
 
-    # Setup Node.js
-    - name: Setup Node.js
-      uses: actions/setup-node@v3
-      with:
-        node-version: '18'
+      # Install composer dependencies
+      - name: Install Composer dependencies
+        run: |
+          composer install --no-dev --optimize-autoloader
+          php artisan config:clear
+          php artisan route:clear
+          php artisan view:clear
+          php artisan cache:clear
 
-    # Install dependencies
-    - name: Install dependencies
-      run: |
-        composer install --no-dev --optimize-autoloader
-        npm install
-        npm run prod
+      # Set correct permissions
+      - name: Set directory permissions
+        run: chmod -R 775 storage bootstrap/cache
 
-    # Package application
-    - name: Create deployment package
-      run: |
-        rm -rf node_modules/ .git/ .github/
-        zip -r ../app.zip . -x '*.git*' '*.env*'
+      # Package application
+      - name: Create deployment package
+        run: |
+          rm -rf node_modules/ .git/ .github/
+          zip -r ../app.zip . -x '*.git*' '*.env*'
 
-    # AWS Deployment
-    - name: Configure AWS credentials
-      uses: aws-actions/configure-aws-credentials@v4
-      with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: ${{ secrets.AWS_REGION }}
+      # Configure AWS credentials
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
 
-    - name: Deploy to Elastic Beanstalk
-      uses: einaregilsson/beanstalk-deploy@v21
-      with:
-        application_name: ${{ secrets.AWS_ELASTICBEANSTALK_APPLICATION_NAME }}
-        environment_name: ${{ secrets.AWS_ELASTICBEANSTALK_ENVIRONMENT_NAME }}
-        version_label: "v${{ github.run_number }}"
-        region: ${{ secrets.AWS_REGION }}
-        deployment_package: ../app.zip
+      # Deploy to Elastic Beanstalk
+      - name: Deploy to Elastic Beanstalk
+        uses: einaregilsson/beanstalk-deploy@v21
+        with:
+          application_name: ${{ secrets.AWS_ELASTICBEANSTALK_APPLICATION_NAME }}
+          environment_name: ${{ secrets.AWS_ELASTICBEANSTALK_ENVIRONMENT_NAME }}
+          version_label: "v${{ github.run_number }}"
+          region: ${{ secrets.AWS_REGION }}
+          deployment_package: ../app.zip
