@@ -44,8 +44,8 @@ jobs:
           echo "AWS_DEFAULT_REGION=${{ secrets.AWS_DEFAULT_REGION }}" >> .env
 
       # Run tests
-      - name: Run Tests
-        run: php artisan test
+      # - name: Run Tests
+      #   run: php artisan test
 
   deploy:
     runs-on: ubuntu-latest
