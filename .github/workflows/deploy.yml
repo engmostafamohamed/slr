@@ -75,20 +75,11 @@ jobs:
           
           # Check if environment exists and create it if necessary
           if ! eb use ${{ secrets.AWS_ELASTICBEANSTALK_ENVIRONMENT_NAME }}; then
-            echo "Environment not found. Creating it..."
-            eb create ${{ secrets.AWS_ELASTICBEANSTALK_ENVIRONMENT_NAME }} --region ${{ secrets.AWS_REGION }}
+            # echo "Environment not found. Creating it..."
+            echo "Environment not found."
+            # eb create ${{ secrets.AWS_ELASTICBEANSTALK_ENVIRONMENT_NAME }} --region ${{ secrets.AWS_REGION }}
           else
             echo "Environment found. Deploying..."
-          fi
-
-      # If the environment is in CREATE_FAILED, terminate it and recreate
-      - name: Handle Failed Environment
-        run: |
-          if ! eb deploy; then
-            echo "Deployment failed. Terminating environment..."
-            eb terminate --force
-            echo "Recreating the environment..."
-            eb create ${{ secrets.AWS_ELASTICBEANSTALK_ENVIRONMENT_NAME }} --region ${{ secrets.AWS_REGION }}
           fi
 
   post-deploy:
