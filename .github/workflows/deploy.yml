@@ -68,7 +68,16 @@ jobs:
       - name: Initialize Elastic Beanstalk
         run: |
           eb init -p php -r ${{ secrets.AWS_REGION }} --region ${{ secrets.AWS_REGION }}
-          eb use ${{ secrets.AWS_ELASTICBEANSTALK_ENVIRONMENT_NAME }}  # Use the environment name from the secret
+          
+          # Check if environment exists and create it if necessary
+          if ! eb use ${{ secrets.AWS_ELASTICBEANSTALK_ENVIRONMENT_NAME }}; then
+            echo "Environment not found. Creating it..."
+            eb create ${{ secrets.AWS_ELASTICBEANSTALK_ENVIRONMENT_NAME }}
+          else
+            echo "Environment found. Deploying..."
+          fi
+
+          # Deploy the application
           eb deploy
 
   post-deploy:
