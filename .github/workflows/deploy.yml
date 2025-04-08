@@ -9,7 +9,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      # Checkouts  the code
+      # Checkout the code
       - name: Checkout code
         uses: actions/checkout@v2
 
@@ -42,6 +42,7 @@ jobs:
           echo "AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}" >> .env
           echo "AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}" >> .env
           echo "AWS_REGION=${{ secrets.AWS_REGION }}" >> .env
+          echo "AWS_BUCKET=${{ secrets.AWS_BUCKET }}" >> .env  # Added AWS Bucket for file storage
 
       # Run tests
       # - name: Run Tests
@@ -61,13 +62,14 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_REGION: ${{ secrets.AWS_REGION }}
+          aws-region: ${{ secrets.AWS_REGION }}  # Corrected input for AWS region
 
       # Deploy to AWS Elastic Beanstalk
       - name: Deploy to AWS Elastic Beanstalk
         run: |
+          # Initialize Elastic Beanstalk application and environment
           eb init -p php -r ${{ secrets.AWS_REGION }} --region ${{ secrets.AWS_REGION }}
-          eb use your-environment-name  # Replace with your environment name
+          eb use your-environment-name  # Replace with your Elastic Beanstalk environment name
           eb deploy
 
   post-deploy:
