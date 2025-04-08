@@ -3,26 +3,31 @@ name: Deploy to AWS Elastic Beanstalk
 on:
   push:
     branches:
-      - main  # or 'staging' for staging env
+      - main  # This workflow triggers on pushes to the main branch
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+
     steps:
+      # 1. Checkout the repository
       - name: Checkout code
         uses: actions/checkout@v2
 
+      # 2. Set up PHP environment (using PHP 8.2)
       - name: Set up PHP
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.2'
-          extensions: mbstring, bcmath, gd, pdo, mysql
+          extensions: mbstring, bcmath, gd, pdo, pdo_mysql
 
+      # 3. Install Composer dependencies
       - name: Install Composer dependencies
         run: |
           curl -sS https://getcomposer.org/installer | php
           php composer.phar install --no-dev --optimize-autoloader
 
+      # 4. Install Node.js and build assets (if you use frontend tooling)
       - name: Install Node.js and build assets
         run: |
           curl -sL https://deb.nodesource.com/setup_18.x | sudo -E bash -
@@ -30,35 +35,46 @@ jobs:
           npm install
           npm run prod
 
+      # 5. Set Laravel permissions (if needed by your deployment)
       - name: Set Laravel Permissions
-        run: |
-          chmod -R 775 storage bootstrap/cache
+        run: chmod -R 775 storage bootstrap/cache
 
+      # 6. Configure AWS CLI using secrets
       - name: Configure AWS CLI
         run: |
           aws configure set aws_access_key_id ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws configure set region ${{ secrets.AWS_REGION }}
+          aws configure set default.region ${{ secrets.AWS_REGION }}
 
-      - name: Zip the application
+      # 7. Zip the application for deployment
+      - name: Create deployment package (ZIP)
         run: |
           zip -r application.zip . -x '*.git*' 'node_modules/*' 'storage/*' 'vendor/*'
 
-      - name: Upload to S3
+      # 8. Upload the ZIP to S3
+      - name: Upload deployment package to S3
         run: |
           aws s3 cp application.zip s3://${{ secrets.S3_BUCKET_NAME }}/application.zip
 
+      # 9. Create a new application version in Elastic Beanstalk and update the environment
       - name: Deploy to Elastic Beanstalk
         run: |
           aws elasticbeanstalk create-application-version \
             --application-name ${{ secrets.AWS_ELASTICBEANSTALK_APPLICATION_NAME }} \
             --version-label $GITHUB_SHA \
             --source-bundle S3Bucket=${{ secrets.S3_BUCKET_NAME }},S3Key=application.zip
-
           aws elasticbeanstalk update-environment \
             --environment-name ${{ secrets.AWS_ELASTICBEANSTALK_ENVIRONMENT_NAME }} \
             --version-label $GITHUB_SHA
 
-      - name: Run migrations
+      # 10. (Optional) Run migrations
+      # NOTE: Running "php artisan migrate --force" here will run the command on the GitHub runner,
+      # which is not the deployed server. To run migrations on the deployed EC2 instance, consider either:
+      #   a) Setting up an .ebextensions config to auto-run migrations
+      #   b) Triggering an HTTP endpoint (secured) on your deployed instance that calls migrations.
+      - name: Run migrations (optional)
         run: |
           php artisan migrate --force
+
+      - name: Deployment Complete
+        run: echo "✅ Production deployment complete!"
