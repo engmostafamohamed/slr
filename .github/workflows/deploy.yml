@@ -61,12 +61,12 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
 
       # Deploy to AWS Elastic Beanstalk
       - name: Deploy to AWS Elastic Beanstalk
         run: |
-          eb init -p php -r ${{ secrets.AWS_DEFAULT_REGION }} --region ${{ secrets.AWS_DEFAULT_REGION }}
+          eb init -p php -r ${{ secrets.AWS_REGION }} --region ${{ secrets.AWS_REGION }}
           eb use your-environment-name  # Replace with your environment name
           eb deploy
 
