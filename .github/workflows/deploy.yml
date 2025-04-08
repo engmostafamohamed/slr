@@ -1,5 +1,3 @@
-# .github/workflows/deploy.yml
-
 name: Deploy Laravel 11 to AWS EB
 
 on:
@@ -11,11 +9,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # Checkout code
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Create EB configuration files
+      # Generate .ebextensions for Elastic Beanstalk
       - name: Create EB configurations
         run: |
           mkdir -p .ebextensions
@@ -26,6 +23,11 @@ jobs:
               APP_DEBUG: false
               LOG_CHANNEL: stderr
               DB_CONNECTION: mysql
+              DB_HOST: ${DB_HOST}
+              DB_PORT: 26130
+              DB_DATABASE: ${DB_DATABASE}
+              DB_USERNAME: ${DB_USERNAME}
+              DB_PASSWORD: ${DB_PASSWORD}
           " > .ebextensions/01-environment.config
 
           echo "container_commands:
@@ -49,8 +51,8 @@ jobs:
           php-version: '8.2'
           extensions: mbstring, ctype, fileinfo, openssl, tokenizer, xml, gd, pdo_mysql
 
-      # Install composer dependencies
-      - name: Install Composer dependencies
+      # Install Composer dependencies
+      - name: Install dependencies
         run: |
           composer install --no-dev --optimize-autoloader
           php artisan config:clear
@@ -58,17 +60,16 @@ jobs:
           php artisan view:clear
           php artisan cache:clear
 
-      # Set correct permissions
       - name: Set directory permissions
         run: chmod -R 775 storage bootstrap/cache
 
-      # Package application
+      # Package app
       - name: Create deployment package
         run: |
           rm -rf node_modules/ .git/ .github/
           zip -r ../app.zip . -x '*.git*' '*.env*'
 
-      # Configure AWS credentials
+      # Set AWS credentials
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
