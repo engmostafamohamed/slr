@@ -43,49 +43,35 @@ jobs:
       - name: Set correct permissions
         run: chmod -R 775 storage bootstrap/cache
 
-      - name: Create EB configuration files
+      - name: Create .ebextensions directory and configuration files
         run: |
           mkdir -p .ebextensions
 
+          # Set Document Root to /public
           echo "option_settings:
-            aws:elasticbeanstalk:application:environment:
-              APP_ENV: production
-              APP_DEBUG: false
-              LOG_CHANNEL: stderr
-              DB_CONNECTION: mysql
-              DB_HOST: ${{ secrets.DB_HOST }}
-              DB_PORT: 26130
-              DB_DATABASE: ${{ secrets.DB_DATABASE }}
-              DB_USERNAME: ${{ secrets.DB_USERNAME }}
-              DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
-          " > .ebextensions/01-environment.config
+            aws:elasticbeanstalk:container:php:document_root: /public
+          " > .ebextensions/01_document_root.config
 
+          # Set permissions for storage and bootstrap/cache
           echo "container_commands:
-            01_storage_permissions:
-              command: \"chmod -R 775 storage bootstrap/cache\"
-              ignoreErrors: false
-          " > .ebextensions/02-permissions.config
-
-          echo "container_commands:
-            01_migrate:
-              command: \"php artisan migrate --force\"
-              leader_only: true
-            02_optimize:
-              command: \"php artisan optimize\"
-          " > .ebextensions/03-migrations.config
+            01_set_permissions:
+              command: |
+                sudo chmod -R 775 /var/app/current/storage /var/app/current/bootstrap/cache
+                sudo chown -R webapp:webapp /var/app/current/storage /var/app/current/bootstrap/cache
+          " > .ebextensions/02_permissions.config
 
       - name: Create deployment package
         run: |
           rm -rf node_modules/ .git/ .github/
-          zip -r deploy.zip . -x '*.git*' '*.env*'
+          zip -r ../app.zip . -x '*.git*' '*.env*'
 
-      - name: Deploy to Elastic Beanstalk
-        uses: einaregilsson/beanstalk-deploy@v22
+      - name: Deploy to AWS Elastic Beanstalk
+        uses: einaregilsson/beanstalk-deploy@v21
         with:
           aws_access_key: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws_secret_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          region: ${{ secrets.AWS_REGION }}
           application_name: ${{ secrets.AWS_ELASTICBEANSTALK_APPLICATION_NAME }}
           environment_name: ${{ secrets.AWS_ELASTICBEANSTALK_ENVIRONMENT_NAME }}
           version_label: "v${{ github.run_number }}"
-          region: ${{ secrets.AWS_REGION }}
-          deployment_package: deploy.zip
+          deployment_package: ../app.zip
