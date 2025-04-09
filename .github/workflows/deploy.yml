@@ -1,110 +1,23 @@
-name: Deploy to AWS Elastic Beanstalk
+name: Test Upload Artifact
 
-on:
+on: 
   push:
     branches:
       - main
 
 jobs:
-  deploy:
+  upload:
     runs-on: ubuntu-latest
-
     steps:
-      # Checkout repository
       - name: Checkout repository
         uses: actions/checkout@v4
-
-      # Zip the web code
-      - name: Zip the web code
+      
+      - name: Zip the code
         run: |
           zip -r backend.zip . -x "*.git*" "*.env*" "node_modules/*" "tests/*"
-
-      # Upload web zip artifact
-      - name: Upload web zip artifact
-        uses: actions/upload-artifact@v3
+      
+      - name: Upload artifact
+        uses: actions/upload-artifact@v2
         with:
           name: backend-zip
           path: backend.zip
-
-      # Zip the queue worker code
-      - name: Zip the queue worker code
-        run: |
-          zip -r backend-queue.zip . -x "*.git*" "*.env*" "node_modules/*" "tests/*"
-
-      # Upload queue worker zip artifact
-      - name: Upload queue worker zip artifact
-        uses: actions/upload-artifact@v3
-        with:
-          name: backend-queue-zip
-          path: backend-queue.zip
-
-      # Deploy to production web
-      - name: Deploy to production web
-        uses: atlassian/aws-elasticbeanstalk-deploy@v0.5.2
-        with:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: "us-east-1"
-          APPLICATION_NAME: "stlr-app"
-          ENVIRONMENT_NAME: "stlr-app-env"
-          ZIP_FILE: "backend.zip"
-          S3_BUCKET: "stlr-eb-deployments"
-          VERSION_LABEL: "PROJECTNAME__${{ github.sha }}"
-
-      # Deploy to production queue server
-      - name: Deploy to production queue server
-        uses: atlassian/aws-elasticbeanstalk-deploy@v0.5.2
-        with:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: "us-east-1"
-          APPLICATION_NAME: "stlr-app"
-          ENVIRONMENT_NAME: "stlr-app-queue"
-          ZIP_FILE: "backend-queue.zip"
-          S3_BUCKET: "stlr-eb-deployments"
-          VERSION_LABEL: "PROJECTNAME--queue__${{ github.sha }}"
-
-  # Optionally, testing (commented out)
-  # testing:
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - name: Checkout repository
-  #       uses: actions/checkout@v4
-  #     - name: Zip the web code
-  #       run: |
-  #         zip -r backend.zip . -x "*.git*" "*.env*" "node_modules/*" "tests/*"
-  #     - name: Upload web zip artifact
-  #       uses: actions/upload-artifact@v3
-  #       with:
-  #         name: backend-zip
-  #         path: backend.zip
-  #     - name: Zip the queue worker code
-  #       run: |
-  #         zip -r backend-queue.zip . -x "*.git*" "*.env*" "node_modules/*" "tests/*"
-  #     - name: Upload queue worker zip artifact
-  #       uses: actions/upload-artifact@v3
-  #       with:
-  #         name: backend-queue-zip
-  #         path: backend-queue.zip
-  #     - name: Deploy to testing web
-  #       uses: atlassian/aws-elasticbeanstalk-deploy@v0.5.2
-  #       with:
-  #         AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-  #         AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-  #         AWS_DEFAULT_REGION: "us-east-2"
-  #         APPLICATION_NAME: "stlr-app"
-  #         ENVIRONMENT_NAME: "test-web"
-  #         ZIP_FILE: "backend.zip"
-  #         S3_BUCKET: "stlr-eb-deployments"
-  #         VERSION_LABEL: "PROJECTNAME__${{ github.sha }}"
-  #     - name: Deploy to testing queue server
-  #       uses: atlassian/aws-elasticbeanstalk-deploy@v0.5.2
-  #       with:
-  #         AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-  #         AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-  #         AWS_DEFAULT_REGION: "us-east-2"
-  #         APPLICATION_NAME: "stlr-app"
-  #         ENVIRONMENT_NAME: "test-queue"
-  #         ZIP_FILE: "backend-queue.zip"
-  #         S3_BUCKET: "stlr-eb-deployments"
-  #         VERSION_LABEL: "PROJECTNAME--queue__${{ github.sha }}"
