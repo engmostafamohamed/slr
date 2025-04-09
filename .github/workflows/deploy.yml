@@ -19,7 +19,7 @@ jobs:
         # Upload the zip file as an artifact for the next step
 
       - name: Upload web zip artifact
-        uses: actions/upload-artifact@v2  # Make sure to use v2 here
+        uses: actions/upload-artifact@v3  # Use v3 here
         with:
           name: backend-zip
           path: backend.zip
@@ -30,7 +30,7 @@ jobs:
         # Upload the zip file as an artifact for the next step
 
       - name: Upload queue worker zip artifact
-        uses: actions/upload-artifact@v2  # Make sure to use v2 here
+        uses: actions/upload-artifact@v3  # Use v3 here
         with:
           name: backend-queue-zip
           path: backend-queue.zip
