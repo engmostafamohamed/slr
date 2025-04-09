@@ -2,7 +2,7 @@ name: Deploy Laravel 11 to AWS Elastic Beanstalk
 
 on:
   push:
-    branches: [main] # Change to 'staging' if needed
+    branches: [main] # or [staging], depending on your workflow
 
 jobs:
   deploy:
@@ -21,6 +21,7 @@ jobs:
       - name: Create .env file for CI
         run: |
           cp .env.example .env
+          echo "APP_KEY=base64:$(php -r 'echo base64_encode(random_bytes(32));')" >> .env
           echo "APP_ENV=production" >> .env
           echo "APP_DEBUG=false" >> .env
           echo "LOG_CHANNEL=stderr" >> .env
@@ -31,58 +32,21 @@ jobs:
           echo "DB_USERNAME=${{ secrets.DB_USERNAME }}" >> .env
           echo "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" >> .env
 
-      - name: Install Composer dependencies and generate app key
+      - name: Install Composer dependencies
         run: |
           composer install --no-dev --optimize-autoloader
-          php artisan key:generate
           php artisan config:clear
           php artisan route:clear
           php artisan view:clear
           php artisan cache:clear
 
       - name: Set correct permissions
+        run: chmod -R 775 storage bootstrap/cache
+
+      - name: Package Laravel app
         run: |
-          chmod -R 775 storage bootstrap/cache
-
-      - name: Create .ebextensions config
-        run: |
-          mkdir -p .ebextensions
-
-          # Environment and document root config
-          echo "option_settings:
-            aws:elasticbeanstalk:container:php:document_root: /public
-            aws:elasticbeanstalk:application:environment:
-              APP_ENV: production
-              APP_DEBUG: false
-              LOG_CHANNEL: stderr
-              DB_CONNECTION: mysql
-              DB_HOST: ${{ secrets.DB_HOST }}
-              DB_PORT: 26130
-              DB_DATABASE: ${{ secrets.DB_DATABASE }}
-              DB_USERNAME: ${{ secrets.DB_USERNAME }}
-              DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
-          " > .ebextensions/01-environment.config
-
-          echo "container_commands:
-            01_permissions:
-              command: 'chmod -R 775 storage bootstrap/cache'
-              ignoreErrors: false
-            02_migrate:
-              command: 'php artisan migrate --force'
-              leader_only: true
-            03_optimize:
-              command: 'php artisan optimize'
-          " > .ebextensions/02-commands.config
-
-      - name: List files before zipping (debug)
-        run: |
-          ls -la
-          ls -la .ebextensions
-
-      - name: Create deployment package
-        run: |
-          rm -rf node_modules/ .git/ .github/
-          zip -r app.zip . -x '*.git*' '*.env*'
+          rm -rf node_modules/ .git/ .github/ .ebextensions/
+          zip -r ../app.zip . -x '*.git*' '*.env*'
 
       - name: Deploy to AWS Elastic Beanstalk
         uses: einaregilsson/beanstalk-deploy@v21
@@ -93,4 +57,5 @@ jobs:
           application_name: ${{ secrets.AWS_ELASTICBEANSTALK_APPLICATION_NAME }}
           environment_name: ${{ secrets.AWS_ELASTICBEANSTALK_ENVIRONMENT_NAME }}
           version_label: "v${{ github.run_number }}"
-          deployment_package: app.zip
+          deployment_package: ../app.zip
+          wait_for_deployment: true
