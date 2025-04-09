@@ -25,14 +25,12 @@ jobs:
           echo "APP_ENV=production" >> .env
           echo "APP_DEBUG=false" >> .env
           echo "LOG_CHANNEL=stderr" >> .env
-          echo "CACHE_DRIVER=array" >> .env
           echo "DB_CONNECTION=mysql" >> .env
           echo "DB_HOST=${{ secrets.DB_HOST }}" >> .env
           echo "DB_PORT=3306" >> .env
           echo "DB_DATABASE=${{ secrets.DB_DATABASE }}" >> .env
           echo "DB_USERNAME=${{ secrets.DB_USERNAME }}" >> .env
           echo "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" >> .env
-          echo "DB_SQLITE_DATABASE=" >> .env  # Disable SQLite
 
       - name: Install Composer dependencies
         run: |
@@ -42,27 +40,34 @@ jobs:
       - name: Set file permissions
         run: chmod -R 775 storage bootstrap/cache
 
-      - name: Configure Apache
+      - name: Configure Apache for Laravel
         run: |
           mkdir -p .platform/apache/conf.d
-          echo "DocumentRoot /var/app/current/public" > .platform/apache/conf.d/laravel.conf
-          echo "<Directory /var/app/current/public>" >> .platform/apache/conf.d/laravel.conf
-          echo "    AllowOverride All" >> .platform/apache/conf.d/laravel.conf
-          echo "    Require all granted" >> .platform/apache/conf.d/laravel.conf
-          echo "</Directory>" >> .platform/apache/conf.d/laravel.conf
+          cat <<EOF > .platform/apache/conf.d/laravel.conf
+DocumentRoot /var/app/current/public
 
-      - name: Configure Elastic Beanstalk
+<Directory /var/app/current/public>
+    AllowOverride All
+    Require all granted
+</Directory>
+EOF
+
+      - name: Configure Elastic Beanstalk (.ebextensions)
         run: |
           mkdir -p .ebextensions
-          echo -e "container_commands:\n  01-run-migrations:\n    command: \"php artisan migrate --force\"\n    leader_only: true" > .ebextensions/01-migrations.config
-          echo -e "container_commands:\n  01-set-permissions:\n    command: \"chmod -R 775 storage bootstrap/cache\"\n    leader_only: false" > .ebextensions/02-permissions.config
+          cat <<EOF > .ebextensions/01-permissions.config
+container_commands:
+  01-set-permissions:
+    command: "chmod -R 775 /var/app/current/storage /var/app/current/bootstrap/cache"
+    leader_only: false
+EOF
 
-      - name: Package application
+      - name: Package Laravel app
         run: |
           rm -rf node_modules/ .git/ .github/ .env.example
           zip -r ../app.zip . -x '*.git*' '*.env*' 'node_modules/*' 'tests/*'
 
-      - name: Deploy to AWS EB
+      - name: Deploy to AWS Elastic Beanstalk
         uses: einaregilsson/beanstalk-deploy@v21
         with:
           aws_access_key: ${{ secrets.AWS_ACCESS_KEY_ID }}
