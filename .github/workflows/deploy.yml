@@ -39,8 +39,8 @@ jobs:
 
       - name: Set file permissions
         run: |
-          # Ensure the directories exist in the application's root
-          mkdir -p /var/app/current/storage /var/app/current/bootstrap/cache /var/app/current/public
+          # Ensure the directories exist in the application's root (on Elastic Beanstalk environment)
+          sudo mkdir -p /var/app/current/storage /var/app/current/bootstrap/cache /var/app/current/public
           sudo chmod -R 775 /var/app/current/storage /var/app/current/bootstrap/cache /var/app/current/public
 
       - name: Configure Apache for Laravel
@@ -52,11 +52,6 @@ jobs:
           echo "    AllowOverride All" >> .platform/apache2/conf.d/laravel.conf
           echo "    Require all granted" >> .platform/apache2/conf.d/laravel.conf
           echo "</Directory>" >> .platform/apache2/conf.d/laravel.conf
-
-      - name: Set correct permissions for Elastic Beanstalk directories
-        run: |
-          # Correct permissions for directories in the deployed app
-          sudo chmod -R 775 /var/app/current/storage /var/app/current/bootstrap/cache /var/app/current/public
 
       - name: Configure Elastic Beanstalk (.ebextensions)
         run: |
