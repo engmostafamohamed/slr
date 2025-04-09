@@ -43,24 +43,19 @@ jobs:
       - name: Configure Apache for Laravel
         run: |
           mkdir -p .platform/apache/conf.d
-          cat <<EOF > .platform/apache/conf.d/laravel.conf
-DocumentRoot /var/app/current/public
-
-<Directory /var/app/current/public>
-    AllowOverride All
-    Require all granted
-</Directory>
-EOF
+          echo "DocumentRoot /var/app/current/public" > .platform/apache/conf.d/laravel.conf
+          echo "<Directory /var/app/current/public>" >> .platform/apache/conf.d/laravel.conf
+          echo "    AllowOverride All" >> .platform/apache/conf.d/laravel.conf
+          echo "    Require all granted" >> .platform/apache/conf.d/laravel.conf
+          echo "</Directory>" >> .platform/apache/conf.d/laravel.conf
 
       - name: Configure Elastic Beanstalk (.ebextensions)
         run: |
           mkdir -p .ebextensions
-          cat <<EOF > .ebextensions/01-permissions.config
-container_commands:
-  01-set-permissions:
-    command: "chmod -R 775 /var/app/current/storage /var/app/current/bootstrap/cache"
-    leader_only: false
-EOF
+          echo "container_commands:" > .ebextensions/01-permissions.config
+          echo "  01-set-permissions:" >> .ebextensions/01-permissions.config
+          echo "    command: 'chmod -R 775 /var/app/current/storage /var/app/current/bootstrap/cache'" >> .ebextensions/01-permissions.config
+          echo "    leader_only: false" >> .ebextensions/01-permissions.config
 
       - name: Package Laravel app
         run: |
