@@ -53,6 +53,7 @@ jobs:
         run: |
           rm -rf node_modules/ .git/ .github/ .env.example
           zip -r app.zip . -x "*.git*" "*.env*" "node_modules/*" "tests/*"
+          
 
       # Deploy to Elastic Beanstalk
       - name: Deploy to AWS Elastic Beanstalk
