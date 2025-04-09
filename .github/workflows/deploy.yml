@@ -18,19 +18,8 @@ jobs:
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.2'  # Ensure this matches your Laravel version requirements
+          php-version: '8.2'
           extensions: mbstring, ctype, fileinfo, openssl, tokenizer, xml, gd, pdo_mysql
-
-      # Install Composer dependencies
-      - name: Install Composer dependencies
-        run: |
-          curl -sS https://getcomposer.org/installer | php
-          php composer.phar install --no-dev --optimize-autoloader
-          php artisan config:clear
-
-      # Set proper file permissions
-      - name: Set file permissions
-        run: chmod -R 775 storage bootstrap/cache
 
       # Create .env file for production environment
       - name: Create .env file
@@ -46,11 +35,24 @@ jobs:
           echo "DB_DATABASE=${{ secrets.DB_DATABASE }}" >> .env
           echo "DB_USERNAME=${{ secrets.DB_USERNAME }}" >> .env
           echo "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" >> .env
+          echo "APP_URL=http://stlr-app-env.eba-9pnmrbzt.us-east-1.elasticbeanstalk.com" >> .env
 
-      # Zip the Laravel application code
+      # Install Composer dependencies
+      - name: Install Composer dependencies
+        run: |
+          composer install --no-dev --optimize-autoloader
+          php artisan config:clear
+
+      # Set proper file permissions
+      - name: Set proper file permissions
+        run: |
+          sudo chown -R apache:apache /var/app/current/storage /var/app/current/bootstrap/cache
+          sudo chmod -R 775 /var/app/current/storage /var/app/current/bootstrap/cache
+
+      # Create deployment zip file
       - name: Package Laravel app
         run: |
-          zip -r laravel-app.zip . -x "*.git*" "*.env*" "node_modules/*" "tests/*"  # Exclude unnecessary files
+          zip -r app.zip . -x "*.git*" "*.env*" "node_modules/*" "tests/*"
 
       # Deploy to AWS Elastic Beanstalk
       - name: Deploy to AWS Elastic Beanstalk
@@ -62,5 +64,51 @@ jobs:
           application_name: ${{ secrets.AWS_ELASTICBEANSTALK_APPLICATION_NAME }}
           environment_name: ${{ secrets.AWS_ELASTICBEANSTALK_ENVIRONMENT_NAME }}
           version_label: "v${{ github.run_number }}-${{ github.sha }}"
-          deployment_package: laravel-app.zip
+          deployment_package: app.zip
           wait_for_deployment: true
+
+
+  # Optionally, testing (commented out)
+  # testing:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Checkout repository
+  #       uses: actions/checkout@v4
+  #     - name: Zip the web code
+  #       run: |
+  #         zip -r backend.zip . -x "*.git*" "*.env*" "node_modules/*" "tests/*"
+  #     - name: Upload web zip artifact
+  #       uses: actions/upload-artifact@v3
+  #       with:
+  #         name: backend-zip
+  #         path: backend.zip
+  #     - name: Zip the queue worker code
+  #       run: |
+  #         zip -r backend-queue.zip . -x "*.git*" "*.env*" "node_modules/*" "tests/*"
+  #     - name: Upload queue worker zip artifact
+  #       uses: actions/upload-artifact@v3
+  #       with:
+  #         name: backend-queue-zip
+  #         path: backend-queue.zip
+  #     - name: Deploy to testing web
+  #       uses: atlassian/aws-elasticbeanstalk-deploy@v0.5.2
+  #       with:
+  #         AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  #         AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  #         AWS_DEFAULT_REGION: "us-east-2"
+  #         APPLICATION_NAME: "stlr-app"
+  #         ENVIRONMENT_NAME: "test-web"
+  #         ZIP_FILE: "backend.zip"
+  #         S3_BUCKET: "stlr-eb-deployments"
+  #         VERSION_LABEL: "PROJECTNAME__${{ github.sha }}"
+  #     - name: Deploy to testing queue server
+  #       uses: atlassian/aws-elasticbeanstalk-deploy@v0.5.2
+  #       with:
+  #         AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  #         AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  #         AWS_DEFAULT_REGION: "us-east-2"
+  #         APPLICATION_NAME: "stlr-app"
+  #         ENVIRONMENT_NAME: "test-queue"
+  #         ZIP_FILE: "backend-queue.zip"
+  #         S3_BUCKET: "stlr-eb-deployments"
+  #         VERSION_LABEL: "PROJECTNAME--queue__${{ github.sha }}"
