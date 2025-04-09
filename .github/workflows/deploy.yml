@@ -38,20 +38,24 @@ jobs:
           php artisan config:clear
 
       - name: Set file permissions
-        run: |
-          # Ensure the directories exist in the application's root (on Elastic Beanstalk environment)
-          sudo mkdir -p /var/app/current/storage /var/app/current/bootstrap/cache /var/app/current/public
-          sudo chmod -R 775 /var/app/current/storage /var/app/current/bootstrap/cache /var/app/current/public
+        run: chmod -R 775 storage bootstrap/cache
 
       - name: Configure Apache for Laravel
         run: |
           mkdir -p .platform/apache2/conf.d
-          echo "DocumentRoot /var/app/current/public" > .platform/apache2/conf.d/laravel.conf
-          echo "<Directory /var/app/current/public>" >> .platform/apache2/conf.d/laravel.conf
-          echo "    Options Indexes FollowSymLinks" >> .platform/apache2/conf.d/laravel.conf
-          echo "    AllowOverride All" >> .platform/apache2/conf.d/laravel.conf
-          echo "    Require all granted" >> .platform/apache2/conf.d/laravel.conf
-          echo "</Directory>" >> .platform/apache2/conf.d/laravel.conf
+          echo "<IfModule mod_rewrite.c>" > .platform/apache2/conf.d/laravel.conf
+          echo "    DocumentRoot /var/app/current/public" >> .platform/apache2/conf.d/laravel.conf
+          echo "    <Directory /var/app/current/public>" >> .platform/apache2/conf.d/laravel.conf
+          echo "        Options Indexes FollowSymLinks" >> .platform/apache2/conf.d/laravel.conf
+          echo "        AllowOverride All" >> .platform/apache2/conf.d/laravel.conf
+          echo "        Require all granted" >> .platform/apache2/conf.d/laravel.conf
+          echo "    </Directory>" >> .platform/apache2/conf.d/laravel.conf
+          echo "</IfModule>" >> .platform/apache2/conf.d/laravel.conf
+
+      - name: Ensure directories exist and set permissions
+        run: |
+          sudo mkdir -p /var/app/current/storage /var/app/current/bootstrap/cache /var/app/current/public
+          sudo chmod -R 775 /var/app/current/storage /var/app/current/bootstrap/cache /var/app/current/public
 
       - name: Configure Elastic Beanstalk (.ebextensions)
         run: |
