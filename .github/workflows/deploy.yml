@@ -57,10 +57,15 @@ jobs:
           echo "    command: 'chmod -R 775 /var/app/current/storage /var/app/current/bootstrap/cache'" >> .ebextensions/01-permissions.config
           echo "    leader_only: false" >> .ebextensions/01-permissions.config
 
+          echo "container_commands:" > .ebextensions/02-migrate.config
+          echo "  01-run-migrations:" >> .ebextensions/02-migrate.config
+          echo "    command: 'php artisan migrate --force'" >> .ebextensions/02-migrate.config
+          echo "    leader_only: true" >> .ebextensions/02-migrate.config
+
       - name: Package Laravel app
         run: |
           rm -rf node_modules/ .git/ .github/ .env.example
-          zip -r ../app.zip . -x '*.git*' '*.env*' 'node_modules/*' 'tests/*'
+          zip -r ../app.zip . -x "*.git*" "*.env*" "node_modules/*" "tests/*"
 
       - name: Deploy to AWS Elastic Beanstalk
         uses: einaregilsson/beanstalk-deploy@v21
