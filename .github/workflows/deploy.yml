@@ -46,11 +46,11 @@ jobs:
       - name: Create .platform config for Apache
         run: |
           mkdir -p .platform/apache/conf.d
-          echo 'DocumentRoot /var/app/current/public
-<Directory /var/app/current/public>
-    AllowOverride All
-    Require all granted
-</Directory>' > .platform/apache/conf.d/laravel.conf
+          echo "DocumentRoot /var/app/current/public" > .platform/apache/conf.d/laravel.conf
+          echo "<Directory /var/app/current/public>" >> .platform/apache/conf.d/laravel.conf
+          echo "    AllowOverride All" >> .platform/apache/conf.d/laravel.conf
+          echo "    Require all granted" >> .platform/apache/conf.d/laravel.conf
+          echo "</Directory>" >> .platform/apache/conf.d/laravel.conf
 
       - name: Package Laravel app
         run: |
@@ -68,4 +68,3 @@ jobs:
           version_label: "v${{ github.run_number }}-${{ github.sha }}"
           deployment_package: ../app.zip
           wait_for_deployment: true
-    use_existing_version_if_available: true  # ✅ This allows redeployment
