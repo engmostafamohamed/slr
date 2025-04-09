@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # Checkout the repository
+      # Checkout the code
       - name: Checkout repository
         uses: actions/checkout@v4
 
@@ -45,12 +45,8 @@ jobs:
       # Set proper file permissions
       - name: Set file permissions
         run: |
-          # For Nginx (adjust if your web server is Apache or another)
-          sudo chown -R www-data:www-data /var/app/current/storage /var/app/current/bootstrap/cache
+          sudo chown -R webapp:webapp /var/app/current/storage /var/app/current/bootstrap/cache
           sudo chmod -R 775 /var/app/current/storage /var/app/current/bootstrap/cache
-          # If using Apache instead, uncomment and use the following:
-          # sudo chown -R webapp:webapp /var/app/current/storage /var/app/current/bootstrap/cache
-          # sudo chmod -R 775 /var/app/current/storage /var/app/current/bootstrap/cache
 
       # Create deployment zip file
       - name: Package Laravel app
