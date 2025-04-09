@@ -12,13 +12,15 @@ use Illuminate\Support\Facades\Mail;
 
 use Illuminate\Support\Facades\Route;
 
+Route::get('/', function () {
+    return response()->json(['message' => 'App is working!']);
+});
 
 Route::get('/send-test-email', function () {
     $email = 'eng.mostafa155@gmail.com';
     Mail::raw('This is a test email from Laravel.', function ($message) use ($email) {
         $message->to($email)->subject('Test Email');
     });
-
     return response()->json(['message' => 'Test email sent successfully!']);
 });
 
