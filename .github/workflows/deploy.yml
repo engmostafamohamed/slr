@@ -38,7 +38,8 @@ jobs:
           php artisan config:clear
 
       - name: Set file permissions
-        run: chmod -R 775 storage bootstrap/cache
+        run: |
+          chmod -R 775 storage bootstrap/cache
 
       - name: Configure Apache for Laravel
         run: |
@@ -50,6 +51,9 @@ jobs:
           echo "    Require all granted" >> .platform/apache2/conf.d/laravel.conf
           echo "</Directory>" >> .platform/apache2/conf.d/laravel.conf
 
+      - name: Set correct permissions
+        run: |
+          sudo chmod -R 775 /var/app/current/storage /var/app/current/bootstrap/cache /var/app/current/public
 
       - name: Configure Elastic Beanstalk (.ebextensions)
         run: |
