@@ -2,7 +2,7 @@ name: Deploy Laravel 11 to AWS Elastic Beanstalk
 
 on:
   push:
-    branches: [main] # or [staging], depending on your workflow
+    branches: [main] # or 'staging' as needed
 
 jobs:
   deploy:
@@ -43,10 +43,19 @@ jobs:
       - name: Set correct permissions
         run: chmod -R 775 storage bootstrap/cache
 
+      - name: Create .platform config for Apache
+        run: |
+          mkdir -p .platform/apache/conf.d
+          echo 'DocumentRoot /var/app/current/public
+<Directory /var/app/current/public>
+    AllowOverride All
+    Require all granted
+</Directory>' > .platform/apache/conf.d/laravel.conf
+
       - name: Package Laravel app
         run: |
-          rm -rf node_modules/ .git/ .github/ .ebextensions/
-          zip -r ../app.zip . -x '*.git*' '*.env*'
+          rm -rf node_modules/ .git/ .github/
+          zip -r ../app.zip . -x '*.git*' '*.env*' -x 'node_modules/*'
 
       - name: Deploy to AWS Elastic Beanstalk
         uses: einaregilsson/beanstalk-deploy@v21
