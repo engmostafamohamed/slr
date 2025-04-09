@@ -12,9 +12,7 @@ use Illuminate\Support\Facades\Mail;
 
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', function () {
-    return response()->json(['message' => 'App is working!']);
-});
+Route::get('/health', fn () => response()->json(['status' => 'ok']));
 
 Route::get('/send-test-email', function () {
     $email = 'eng.mostafa155@gmail.com';

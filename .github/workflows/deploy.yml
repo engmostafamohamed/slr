@@ -2,7 +2,7 @@ name: Deploy Laravel 11 to AWS Elastic Beanstalk
 
 on:
   push:
-    branches: [main] # or [staging], depending on your workflow
+    branches: [main]
 
 jobs:
   deploy:
@@ -18,16 +18,16 @@ jobs:
           php-version: '8.2'
           extensions: mbstring, ctype, fileinfo, openssl, tokenizer, xml, gd, pdo_mysql
 
-      - name: Create .env file for CI
+      - name: Create .env file
         run: |
           cp .env.example .env
-          echo "APP_KEY=base64:$(php -r 'echo base64_encode(random_bytes(32));')" >> .env
+          echo "APP_KEY=${{ secrets.APP_KEY }}" >> .env
           echo "APP_ENV=production" >> .env
           echo "APP_DEBUG=false" >> .env
           echo "LOG_CHANNEL=stderr" >> .env
           echo "DB_CONNECTION=mysql" >> .env
           echo "DB_HOST=${{ secrets.DB_HOST }}" >> .env
-          echo "DB_PORT=26130" >> .env
+          echo "DB_PORT=3306" >> .env
           echo "DB_DATABASE=${{ secrets.DB_DATABASE }}" >> .env
           echo "DB_USERNAME=${{ secrets.DB_USERNAME }}" >> .env
           echo "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" >> .env
@@ -36,17 +36,42 @@ jobs:
         run: |
           composer install --no-dev --optimize-autoloader
           php artisan config:clear
-          php artisan route:clear
-          php artisan view:clear
-          php artisan cache:clear
+
+      - name: Set file permissions
+        run: |
+          chmod -R 775 storage bootstrap/cache
+
+      - name: Configure Apache for Laravel
+        run: |
+          mkdir -p .platform/apache2/conf.d
+          echo "DocumentRoot /var/app/current/public" > .platform/apache2/conf.d/laravel.conf
+          echo "<Directory /var/app/current/public>" >> .platform/apache2/conf.d/laravel.conf
+          echo "    Options Indexes FollowSymLinks" >> .platform/apache2/conf.d/laravel.conf
+          echo "    AllowOverride All" >> .platform/apache2/conf.d/laravel.conf
+          echo "    Require all granted" >> .platform/apache2/conf.d/laravel.conf
+          echo "</Directory>" >> .platform/apache2/conf.d/laravel.conf
 
       - name: Set correct permissions
-        run: chmod -R 775 storage bootstrap/cache
+        run: |
+          sudo chmod -R 775 /var/app/current/storage /var/app/current/bootstrap/cache /var/app/current/public
+
+      - name: Configure Elastic Beanstalk (.ebextensions)
+        run: |
+          mkdir -p .ebextensions
+          echo "container_commands:" > .ebextensions/01-permissions.config
+          echo "  01-set-permissions:" >> .ebextensions/01-permissions.config
+          echo "    command: 'chmod -R 775 /var/app/current/storage /var/app/current/bootstrap/cache'" >> .ebextensions/01-permissions.config
+          echo "    leader_only: false" >> .ebextensions/01-permissions.config
+
+          echo "container_commands:" > .ebextensions/02-migrate.config
+          echo "  01-run-migrations:" >> .ebextensions/02-migrate.config
+          echo "    command: 'php artisan migrate --force'" >> .ebextensions/02-migrate.config
+          echo "    leader_only: true" >> .ebextensions/02-migrate.config
 
       - name: Package Laravel app
         run: |
-          rm -rf node_modules/ .git/ .github/ .ebextensions/
-          zip -r ../app.zip . -x '*.git*' '*.env*'
+          rm -rf node_modules/ .git/ .github/ .env.example
+          zip -r ../app.zip . -x "*.git*" "*.env*" "node_modules/*" "tests/*"
 
       - name: Deploy to AWS Elastic Beanstalk
         uses: einaregilsson/beanstalk-deploy@v21
@@ -56,6 +81,6 @@ jobs:
           region: ${{ secrets.AWS_REGION }}
           application_name: ${{ secrets.AWS_ELASTICBEANSTALK_APPLICATION_NAME }}
           environment_name: ${{ secrets.AWS_ELASTICBEANSTALK_ENVIRONMENT_NAME }}
-          version_label: "v${{ github.run_number }}"
+          version_label: "v${{ github.run_number }}-${{ github.sha }}"
           deployment_package: ../app.zip
           wait_for_deployment: true
