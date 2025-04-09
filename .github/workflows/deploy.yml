@@ -65,6 +65,7 @@ jobs:
           region: ${{ secrets.AWS_REGION }}
           application_name: ${{ secrets.AWS_ELASTICBEANSTALK_APPLICATION_NAME }}
           environment_name: ${{ secrets.AWS_ELASTICBEANSTALK_ENVIRONMENT_NAME }}
-          version_label: "v${{ github.run_number }}"
+          version_label: "v${{ github.run_number }}-${{ github.sha }}"
           deployment_package: ../app.zip
           wait_for_deployment: true
+          use_existing_version_if_available: true
