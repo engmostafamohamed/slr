@@ -39,6 +39,7 @@ jobs:
 
       - name: Set file permissions
         run: |
+          # Ensure the directories exist in the application's root
           mkdir -p /var/app/current/storage /var/app/current/bootstrap/cache /var/app/current/public
           sudo chmod -R 775 /var/app/current/storage /var/app/current/bootstrap/cache /var/app/current/public
 
@@ -54,6 +55,7 @@ jobs:
 
       - name: Set correct permissions for Elastic Beanstalk directories
         run: |
+          # Correct permissions for directories in the deployed app
           sudo chmod -R 775 /var/app/current/storage /var/app/current/bootstrap/cache /var/app/current/public
 
       - name: Configure Elastic Beanstalk (.ebextensions)
