@@ -1,4 +1,4 @@
-name: Deploy Laravel to AWS Elastic Beanstalk
+name: Deploy Laravel 11 to AWS Elastic Beanstalk
 
 on:
   push:
@@ -10,56 +10,56 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # Checkout the repo
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # Setup PHP
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.2'
-          extensions: mbstring, bcmath, ctype, fileinfo, openssl, tokenizer, xml, gd, pdo_mysql
+          extensions: mbstring, ctype, fileinfo, openssl, tokenizer, xml, gd, pdo_mysql
 
+      # Install Composer dependencies
       - name: Install Composer dependencies
-        run: composer install --no-dev --optimize-autoloader
+        run: |
+          composer install --no-dev --optimize-autoloader
 
-      - name: Set up Laravel environment file
+      # Prepare .env file
+      - name: Create .env file
         run: |
           cp .env.example .env
           echo "APP_KEY=${{ secrets.APP_KEY }}" >> .env
           echo "APP_ENV=production" >> .env
           echo "APP_DEBUG=false" >> .env
+          echo "APP_URL=${{ secrets.APP_URL }}" >> .env
           echo "DB_CONNECTION=mysql" >> .env
           echo "DB_HOST=${{ secrets.DB_HOST }}" >> .env
-          echo "DB_PORT=3306" >> .env
+          echo "DB_PORT=${{ secrets.DB_PORT }}" >> .env
           echo "DB_DATABASE=${{ secrets.DB_DATABASE }}" >> .env
           echo "DB_USERNAME=${{ secrets.DB_USERNAME }}" >> .env
           echo "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" >> .env
 
-      - name: Generate app key
-        run: php artisan key:generate
-
-      - name: Clear and cache configs
+      # Set permissions
+      - name: Set permissions
         run: |
-          php artisan config:clear
-          php artisan config:cache
-          php artisan route:cache
-          php artisan view:cache
+          chmod -R 775 storage bootstrap/cache
 
-      - name: Set correct permissions
-        run: chmod -R 775 storage bootstrap/cache
-
-      - name: Create deployment package
+      # Package the application
+      - name: Zip the app
         run: |
-          zip -r app.zip . -x "*.git*" "tests/*" "node_modules/*" ".github/*"
+          zip -r app.zip . -x '*.git*' '*.github*' 'tests/*' 'node_modules/*'
 
+      # Deploy to AWS Elastic Beanstalk
       - name: Deploy to AWS Elastic Beanstalk
         uses: einaregilsson/beanstalk-deploy@v21
         with:
           aws_access_key: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws_secret_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          region: ${{ secrets.AWS_REGION }}
           application_name: ${{ secrets.AWS_ELASTICBEANSTALK_APPLICATION_NAME }}
           environment_name: ${{ secrets.AWS_ELASTICBEANSTALK_ENVIRONMENT_NAME }}
+          region: ${{ secrets.AWS_REGION }}
           version_label: "v-${{ github.run_number }}"
           deployment_package: app.zip
           wait_for_deployment: true
